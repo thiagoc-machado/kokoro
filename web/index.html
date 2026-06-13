@@ -58,14 +58,25 @@
                     </div>
                     <div id="wave-container" class="wave-container"></div>
                     <div class="download-placeholder"></div>
-                    <div id="download-btn" class="download-button">
-                        <div class="download-glow"></div>
-                        <div class="download-icon">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                <path d="M8 11L4 7h8l-4 4z" fill="currentColor"/>
-                                <path d="M8 3v8M4 14h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                            </svg>
-                        </div>
+                    <div class="download-actions">
+                        <button id="download-btn" class="download-button" type="button" aria-label="Download generated audio" title="Download generated audio">
+                            <div class="download-glow"></div>
+                            <div class="download-icon">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                    <path d="M8 11L4 7h8l-4 4z" fill="currentColor"/>
+                                    <path d="M8 3v8M4 14h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                </svg>
+                            </div>
+                        </button>
+                        <button id="clean-download-btn" class="download-button clean" type="button" aria-label="Download cleaned MP3" title="Download cleaned MP3">
+                            <div class="download-glow"></div>
+                            <div class="download-icon">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                    <path d="M8 1.5l1.35 3.9L13.25 6.75l-3.9 1.35L8 12l-1.35-3.9-3.9-1.35 3.9-1.35L8 1.5z" fill="currentColor"/>
+                                    <path d="M2 13.5l1.1-1.1M13.9 2.5l-1.1 1.1M12.9 13.1l-1.1-1.1M3.2 3.6l1.1 1.1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+                                </svg>
+                            </div>
+                        </button>
                     </div>
                 </div>
             </div>

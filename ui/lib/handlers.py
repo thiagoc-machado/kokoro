@@ -98,7 +98,7 @@ def setup_event_handlers(components: dict, disable_local_saving: bool = False):
                 else [gr.update(choices=files.list_input_files())]
             )
 
-    def generate_from_text(text, voice, format, speed):
+    def generate_from_text(text, remove_timestamps, voice, format, speed):
         """Generate speech from direct text input"""
         is_available, _ = api.check_api_status()
         if not is_available:
@@ -113,7 +113,9 @@ def setup_event_handlers(components: dict, disable_local_saving: bool = False):
         if not disable_local_saving:
             files.save_text(text)
 
-        result = api.text_to_speech(text, voice, format, speed)
+        result = api.text_to_speech(
+            text, voice, format, speed, remove_timestamps=remove_timestamps
+        )
         if result is None:
             gr.Warning("Failed to generate speech. Please try again.")
             return [None, gr.update(choices=files.list_output_files())]
@@ -125,7 +127,7 @@ def setup_event_handlers(components: dict, disable_local_saving: bool = False):
             ),
         ]
 
-    def generate_from_file(selected_file, voice, format, speed):
+    def generate_from_file(selected_file, remove_timestamps, voice, format, speed):
         """Generate speech from selected file"""
         is_available, _ = api.check_api_status()
         if not is_available:
@@ -137,7 +139,9 @@ def setup_event_handlers(components: dict, disable_local_saving: bool = False):
             return [None, gr.update(choices=files.list_output_files())]
 
         text = files.read_text_file(selected_file)
-        result = api.text_to_speech(text, voice, format, speed)
+        result = api.text_to_speech(
+            text, voice, format, speed, remove_timestamps=remove_timestamps
+        )
         if result is None:
             gr.Warning("Failed to generate speech. Please try again.")
             return [None, gr.update(choices=files.list_output_files())]
@@ -188,6 +192,7 @@ def setup_event_handlers(components: dict, disable_local_saving: bool = False):
         fn=generate_from_text,
         inputs=[
             components["input"]["text_input"],
+            components["input"]["remove_timestamps"],
             components["model"]["voice"],
             components["model"]["format"],
             components["model"]["speed"],
@@ -260,6 +265,7 @@ def setup_event_handlers(components: dict, disable_local_saving: bool = False):
             fn=generate_from_file,
             inputs=[
                 components["input"]["file_select"],
+                components["input"]["remove_timestamps"],
                 components["model"]["voice"],
                 components["model"]["format"],
                 components["model"]["speed"],

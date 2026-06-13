@@ -18,10 +18,25 @@ from .vocabulary import tokenize
 CUSTOM_PHONEMES = re.compile(r"(\[[^\[\]]*?\]\(\/[^\/\(\)]*?\/\))")
 # Pattern to find pause tags like [pause:0.5s]
 PAUSE_TAG_PATTERN = re.compile(r"\[pause:(\d+(?:\.\d+)?)s\]", re.IGNORECASE)
+# Pattern to remove script timecodes at the beginning of a line or chunk.
+LEADING_TIMESTAMP_PATTERN = re.compile(
+    r"(?m)^\s*\[(?:\d{1,2}:)?\d{1,2}:\d{2}(?:\.\d+)?\]\s*"
+)
+
+
+def strip_leading_script_timestamps(text: str) -> str:
+    """Remove leading script timestamps like [0:00] from each line."""
+    if not text:
+        return text
+
+    return LEADING_TIMESTAMP_PATTERN.sub("", text)
 
 
 def process_text_chunk(
-    text: str, language: str = "a", skip_phonemize: bool = False
+    text: str,
+    language: str = "a",
+    skip_phonemize: bool = False,
+    remove_timestamps: bool = False,
 ) -> List[int]:
     """Process a chunk of text through normalization, phonemization, and tokenization.
 
@@ -35,6 +50,10 @@ def process_text_chunk(
     """
     start_time = time.time()
     
+    # Optionally remove script timestamps before normalization/phonemization.
+    if remove_timestamps:
+        text = strip_leading_script_timestamps(text)
+
     # Strip input text to remove any leading/trailing spaces that could cause artifacts
     text = text.strip()
     
@@ -138,6 +157,7 @@ async def smart_split(
     max_tokens: int = settings.absolute_max_tokens,
     lang_code: str = "a",
     normalization_options: NormalizationOptions = NormalizationOptions(),
+    remove_timestamps: bool = False,
 ) -> AsyncGenerator[Tuple[str, List[int], Optional[float]], None]:
     """Build optimal chunks targeting 300-400 tokens, never exceeding max_tokens.
     
@@ -164,6 +184,8 @@ async def smart_split(
         if text_part_raw and text_part_raw.strip():  # Only process if the part is not empty string
             # Strip leading and trailing spaces to prevent pause tag splitting artifacts
             text_part_raw = text_part_raw.strip()
+            if remove_timestamps:
+                text_part_raw = strip_leading_script_timestamps(text_part_raw)
 
             # Normalize text (original logic)
             processed_text = text_part_raw

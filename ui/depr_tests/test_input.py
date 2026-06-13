@@ -16,6 +16,7 @@ def test_create_input_column_structure():
     expected_components = {
         "tabs",
         "text_input",
+        "remove_timestamps",
         "file_select",
         "file_upload",
         "file_preview",
@@ -28,6 +29,7 @@ def test_create_input_column_structure():
     # Test component types
     assert isinstance(components["tabs"], gr.Tabs)
     assert isinstance(components["text_input"], gr.Textbox)
+    assert isinstance(components["remove_timestamps"], gr.Checkbox)
     assert isinstance(components["file_select"], gr.Dropdown)
     assert isinstance(components["file_upload"], gr.File)
     assert isinstance(components["file_preview"], gr.Textbox)
@@ -44,6 +46,15 @@ def test_text_input_configuration():
     assert text_input.label == "Text to speak"
     assert text_input.placeholder == "Enter text here..."
     assert text_input.lines == 4
+
+
+def test_remove_timestamps_configuration():
+    """Test the timestamp removal checkbox configuration."""
+    _, components = create_input_column()
+    remove_timestamps = components["remove_timestamps"]
+
+    assert remove_timestamps.label == "Remove leading timestamps"
+    assert remove_timestamps.value is False
 
 
 def test_file_upload_configuration():

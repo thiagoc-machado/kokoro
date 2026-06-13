@@ -11,6 +11,10 @@ def create_input_column(disable_local_saving: bool = False) -> Tuple[gr.Column, 
         text_input = gr.Textbox(
             label="Text to speak", placeholder="Enter text here...", lines=4
         )
+        remove_timestamps = gr.Checkbox(
+            label="Remove leading timestamps",
+            value=False,
+        )
 
         # Always show file upload but handle differently based on disable_local_saving
         file_upload = gr.File(label="Upload Text File (.txt)", file_types=[".txt"])
@@ -62,6 +66,7 @@ def create_input_column(disable_local_saving: bool = False) -> Tuple[gr.Column, 
         components = {
             "tabs": None,
             "text_input": text_input,
+            "remove_timestamps": remove_timestamps,
             "text_submit": text_submit_direct,
             "file_select": None,
             "file_upload": file_upload,  # Keep file upload even when saving is disabled
@@ -73,6 +78,7 @@ def create_input_column(disable_local_saving: bool = False) -> Tuple[gr.Column, 
         components = {
             "tabs": tabs,
             "text_input": text_input,
+            "remove_timestamps": remove_timestamps,
             "text_submit": text_submit_direct,
             "file_select": input_files_list,
             "file_upload": file_upload,

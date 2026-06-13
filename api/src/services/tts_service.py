@@ -267,6 +267,7 @@ class TTSService:
         volume_multiplier: Optional[float] = 1.0,
         normalization_options: Optional[NormalizationOptions] = NormalizationOptions(),
         return_timestamps: Optional[bool] = False,
+        remove_timestamps: bool = False,
     ) -> AsyncGenerator[AudioChunk, None]:
         """Generate and stream audio chunks."""
         stream_normalizer = AudioNormalizer()
@@ -291,6 +292,7 @@ class TTSService:
                 text,
                 lang_code=pipeline_lang_code,
                 normalization_options=normalization_options,
+                remove_timestamps=remove_timestamps,
             ):
                 if pause_duration_s is not None and pause_duration_s > 0:
                     # --- Handle Pause Chunk ---
@@ -408,6 +410,7 @@ class TTSService:
         volume_multiplier: Optional[float] = 1.0,
         normalization_options: Optional[NormalizationOptions] = NormalizationOptions(),
         lang_code: Optional[str] = None,
+        remove_timestamps: bool = False,
     ) -> AudioChunk:
         """Generate complete audio for text using streaming internally."""
         audio_data_chunks = []
@@ -422,6 +425,7 @@ class TTSService:
                 normalization_options=normalization_options,
                 return_timestamps=return_timestamps,
                 lang_code=lang_code,
+                remove_timestamps=remove_timestamps,
                 output_format=None,
             ):
                 if len(audio_stream_data.audio) > 0:

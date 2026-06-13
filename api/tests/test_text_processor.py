@@ -4,6 +4,7 @@ from api.src.services.text_processing.text_processor import (
     get_sentence_info,
     process_text_chunk,
     smart_split,
+    strip_leading_script_timestamps,
 )
 
 
@@ -21,6 +22,17 @@ def test_process_text_chunk_empty():
     tokens = process_text_chunk(text)
     assert isinstance(tokens, list)
     assert len(tokens) == 0
+
+
+def test_strip_leading_script_timestamps():
+    """Test removal of leading timestamps at the start of lines."""
+    text = "[0:00] Picture this.\n[0:05] You are sitting at your kitchen table."
+    cleaned = strip_leading_script_timestamps(text)
+
+    assert "[0:00]" not in cleaned
+    assert "[0:05]" not in cleaned
+    assert "Picture this." in cleaned
+    assert "You are sitting at your kitchen table." in cleaned
 
 
 def test_process_text_chunk_phonemes():
@@ -204,6 +216,21 @@ async def test_smart_split_with_pause():
     assert chunks[2][2] is None  # No pause
     assert "How are you?" in chunks[2][0]
     assert len(chunks[2][1]) > 0
+
+
+@pytest.mark.asyncio
+async def test_smart_split_remove_timestamps():
+    """Test smart splitting with optional timestamp removal."""
+    text = "[0:00] Picture this. [0:03] You are sitting at your kitchen table."
+
+    chunks = []
+    async for chunk_text, chunk_tokens, _ in smart_split(text, remove_timestamps=True):
+        chunks.append((chunk_text, chunk_tokens))
+
+    assert len(chunks) >= 1
+    assert all("[0:00]" not in chunk_text for chunk_text, _ in chunks)
+    assert all("[0:03]" not in chunk_text for chunk_text, _ in chunks)
+    assert any("Picture this." in chunk_text for chunk_text, _ in chunks)
 
 @pytest.mark.asyncio
 async def test_smart_split_with_two_pause():

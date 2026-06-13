@@ -81,6 +81,10 @@ class OpenAISpeechRequest(BaseModel):
         description="The model to use for generation. Supported models: tts-1, tts-1-hd, kokoro",
     )
     input: str = Field(..., description="The text to generate audio for")
+    remove_timestamps: bool = Field(
+        default=False,
+        description="If true, removes leading script timestamps like [0:00] before synthesis.",
+    )
     voice: str = Field(
         default="af_heart",
         description="The voice to use for generation. Can be a base voice or a combined voice name.",
@@ -131,6 +135,10 @@ class CaptionedSpeechRequest(BaseModel):
         description="The model to use for generation. Supported models: tts-1, tts-1-hd, kokoro",
     )
     input: str = Field(..., description="The text to generate audio for")
+    remove_timestamps: bool = Field(
+        default=False,
+        description="If true, removes leading script timestamps like [0:00] before synthesis.",
+    )
     voice: str = Field(
         default="af_heart",
         description="The voice to use for generation. Can be a base voice or a combined voice name.",

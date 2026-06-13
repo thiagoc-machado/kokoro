@@ -112,6 +112,22 @@ def test_retrieve_model(mock_openai_mappings):
     assert error["detail"]["type"] == "invalid_request_error"
 
 
+@patch("api.src.routers.openai_compatible.transcode_clean_mp3")
+def test_clean_download_route(mock_transcode, tmp_path, mock_openai_mappings):
+    """Test the cleaned audio download endpoint."""
+    clean_file = tmp_path / "speech_clean.mp3"
+    clean_file.write_bytes(b"clean mp3 data")
+    mock_transcode.return_value = (str(clean_file), "speech_clean.mp3")
+
+    response = client.get("/v1/download/speech.mp3/clean")
+
+    assert response.status_code == 200
+    assert response.content == b"clean mp3 data"
+    assert response.headers["content-type"] == "audio/mpeg"
+    assert "speech_clean.mp3" in response.headers["content-disposition"]
+    mock_transcode.assert_called_once_with("speech.mp3")
+
+
 @pytest.mark.asyncio
 async def test_get_tts_service_initialization():
     """Test TTSService initialization"""

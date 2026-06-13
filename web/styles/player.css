@@ -222,8 +222,6 @@
     }
 
     .download-button {
-        bottom: 0.5rem;
-        right: 0.5rem;
         width: 26px;
         height: 26px;
     }
@@ -234,9 +232,15 @@
     }
 
     .download-placeholder {
-        width: 26px;
+        width: 58px;
         height: 26px;
         margin: 0.25rem;
+    }
+
+    .download-actions {
+        bottom: 0.5rem;
+        right: 0.5rem;
+        gap: 0.3rem;
     }
 
     .generation-progress {
@@ -361,16 +365,22 @@
 }
 
 .download-placeholder {
-    width: 32px;
+    width: 72px;
     height: 32px;
     margin: 0.75rem;
     visibility: hidden;
 }
 
-.download-button {
+.download-actions {
     position: absolute;
     bottom: 0.75rem;
     right: 0.75rem;
+    display: flex;
+    gap: 0.4rem;
+    z-index: 10;
+}
+
+.download-button {
     width: 32px;
     height: 32px;
     cursor: pointer;
@@ -380,7 +390,12 @@
     transition: transform 0.2s ease;
     opacity: 0;
     pointer-events: none;
-    z-index: 10;
+    position: relative;
+    padding: 0;
+    border: none;
+    background: transparent;
+    appearance: none;
+    -webkit-appearance: none;
 }
 
 .download-button.ready {
@@ -424,6 +439,10 @@
 
 .download-button:hover .download-icon {
     box-shadow: 0 0 15px rgba(34, 197, 94, 0.3);
+}
+
+.download-button.clean:hover .download-icon {
+    box-shadow: 0 0 15px rgba(245, 158, 11, 0.3);
 }
 
 @keyframes rotate {

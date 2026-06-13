@@ -17,6 +17,7 @@ from loguru import logger
 
 from ..core.config import settings
 from ..inference.base import AudioChunk
+from ..services.ffmpeg_transcoder import transcode_clean_mp3
 from ..services.audio import AudioService
 from ..services.streaming_audio_writer import StreamingAudioWriter
 from ..services.tts_service import TTSService
@@ -143,6 +144,9 @@ async def stream_audio_chunks(
     unique_properties = {"return_timestamps": False}
     if hasattr(request, "return_timestamps"):
         unique_properties["return_timestamps"] = request.return_timestamps
+    unique_properties["remove_timestamps"] = False
+    if hasattr(request, "remove_timestamps"):
+        unique_properties["remove_timestamps"] = request.remove_timestamps
 
     try:
         async for chunk_data in tts_service.generate_audio_stream(
@@ -155,6 +159,7 @@ async def stream_audio_chunks(
             volume_multiplier=request.volume_multiplier,
             normalization_options=request.normalization_options,
             return_timestamps=unique_properties["return_timestamps"],
+            remove_timestamps=unique_properties["remove_timestamps"],
         ):
             # Check if client is still connected
             is_disconnected = client_request.is_disconnected
@@ -304,6 +309,7 @@ async def create_speech(
                 volume_multiplier=request.volume_multiplier,
                 normalization_options=request.normalization_options,
                 lang_code=request.lang_code,
+                remove_timestamps=request.remove_timestamps,
             )
 
             audio_data = await AudioService.convert_audio(
@@ -442,6 +448,56 @@ async def download_audio_file(filename: str):
             detail={
                 "error": "server_error",
                 "message": "Failed to serve audio file",
+                "type": "server_error",
+            },
+        )
+
+
+@router.get("/download/{filename}/clean")
+async def download_clean_audio_file(filename: str):
+    """Download a cleaned MP3 transcode for a generated audio file."""
+    try:
+        from ..core.paths import get_content_type
+
+        file_path, output_filename = await transcode_clean_mp3(filename)
+        content_type = await get_content_type(file_path)
+
+        return FileResponse(
+            file_path,
+            media_type=content_type,
+            filename=output_filename,
+            headers={
+                "Cache-Control": "no-cache",
+                "Content-Disposition": f"attachment; filename={output_filename}",
+            },
+        )
+    except FileNotFoundError as e:
+        logger.warning(f"Clean download source file not found: {filename}")
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "file_not_found",
+                "message": str(e),
+                "type": "invalid_request_error",
+            },
+        )
+    except RuntimeError as e:
+        logger.error(f"Failed to transcode clean audio file {filename}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "server_error",
+                "message": "Failed to transcode audio file",
+                "type": "server_error",
+            },
+        )
+    except Exception as e:
+        logger.error(f"Error serving clean download file {filename}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "server_error",
+                "message": "Failed to serve cleaned audio file",
                 "type": "server_error",
             },
         )

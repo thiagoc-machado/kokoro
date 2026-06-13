@@ -37,7 +37,11 @@ def check_api_status() -> Tuple[bool, List[str]]:
 
 
 def text_to_speech(
-    text: str, voice_id: str | list, format: str, speed: float
+    text: str,
+    voice_id: str | list,
+    format: str,
+    speed: float,
+    remove_timestamps: bool = False,
 ) -> Optional[str]:
     """Generate speech from text using TTS API."""
     if not text.strip():
@@ -57,6 +61,7 @@ def text_to_speech(
             json={
                 "model": "kokoro",
                 "input": text,
+                "remove_timestamps": remove_timestamps,
                 "voice": voice_str,
                 "response_format": format,
                 "speed": float(speed),

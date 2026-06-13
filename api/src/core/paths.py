@@ -330,6 +330,12 @@ async def get_content_type(path: str) -> str:
         ".gif": "image/gif",
         ".svg": "image/svg+xml",
         ".ico": "image/x-icon",
+        ".mp3": "audio/mpeg",
+        ".wav": "audio/wav",
+        ".opus": "audio/opus",
+        ".flac": "audio/flac",
+        ".aac": "audio/aac",
+        ".pcm": "audio/pcm",
     }.get(ext, "application/octet-stream")
 
 

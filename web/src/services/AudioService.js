@@ -88,7 +88,7 @@ export class AudioService {
 
             const downloadPath = response.headers.get('x-download-path');
             if (downloadPath) {
-                this.serverDownloadPath = `/v1${downloadPath}`;
+                this.serverDownloadPath = await config.getApiUrl(`/v1${downloadPath}`);
                 console.log('Download path received:', this.serverDownloadPath);
             }
 
@@ -634,6 +634,14 @@ export class AudioService {
             return null;
         }
         return this.serverDownloadPath;
+    }
+
+    getCleanDownloadUrl() {
+        const downloadUrl = this.getDownloadUrl();
+        if (!downloadUrl) {
+            return null;
+        }
+        return `${downloadUrl}/clean`;
     }
 }
 

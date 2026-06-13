@@ -14,6 +14,7 @@ export class App {
             generateBtnText: document.querySelector('#generate-btn .btn-text'),
             generateBtnLoader: document.querySelector('#generate-btn .loader'),
             downloadBtn: document.getElementById('download-btn'),
+            cleanDownloadBtn: document.getElementById('clean-download-btn'),
             autoplayToggle: document.getElementById('autoplay-toggle'),
             formatSelect: document.getElementById('format-select'),
             status: document.getElementById('status'),
@@ -104,6 +105,7 @@ export class App {
 
         // Download button
         this.elements.downloadBtn.addEventListener('click', () => this.downloadAudio());
+        this.elements.cleanDownloadBtn.addEventListener('click', () => this.downloadCleanAudio());
 
         // Keep browser/output warning aligned with the selected format
         this.elements.formatSelect.addEventListener('change', () => this.applyBrowserStreamingNotice());
@@ -113,6 +115,7 @@ export class App {
             this.audioService.cancel();
             this.setGenerating(false);
             this.elements.downloadBtn.classList.remove('ready');
+            this.elements.cleanDownloadBtn.classList.remove('ready');
             this.showStatus('Generation cancelled', 'info');
         });
 
@@ -128,6 +131,7 @@ export class App {
         // Handle download button visibility
         this.audioService.addEventListener('downloadReady', () => {
             this.elements.downloadBtn.classList.add('ready');
+            this.elements.cleanDownloadBtn.classList.add('ready');
         });
 
         // Handle buffer errors
@@ -172,6 +176,7 @@ export class App {
             this.showStatus('Error: ' + error.message, 'error');
             this.setGenerating(false);
             this.elements.downloadBtn.style.display = 'none';
+            this.elements.cleanDownloadBtn.style.display = 'none';
         });
 
         // Block-mode playback failure: file is still available for download
@@ -232,6 +237,9 @@ export class App {
         this.setGenerating(true);
         this._playbackFailed = false;
         this.elements.downloadBtn.classList.remove('ready');
+        this.elements.cleanDownloadBtn.classList.remove('ready');
+        this.elements.downloadBtn.style.display = '';
+        this.elements.cleanDownloadBtn.style.display = '';
 
         // Just reset progress bar, don't do full cleanup
         this.waveVisualizer.updateProgress(0, 1);
@@ -276,9 +284,28 @@ export class App {
         const voice = this.voiceService.getSelectedVoiceString();
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         
+        this.triggerDownload(downloadUrl, `${voice}_${timestamp}.${format}`);
+    }
+
+    downloadCleanAudio() {
+        const downloadUrl = this.audioService.getCleanDownloadUrl();
+        if (!downloadUrl) {
+            console.warn('No clean download URL available');
+            return;
+        }
+
+        console.log('Starting clean download from:', downloadUrl);
+
+        const voice = this.voiceService.getSelectedVoiceString();
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+
+        this.triggerDownload(downloadUrl, `${voice}_${timestamp}_clean.mp3`);
+    }
+
+    triggerDownload(downloadUrl, filename) {
         const a = document.createElement('a');
         a.href = downloadUrl;
-        a.download = `${voice}_${timestamp}.${format}`;
+        a.download = filename;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);

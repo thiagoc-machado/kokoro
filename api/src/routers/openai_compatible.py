@@ -6,6 +6,7 @@ import os
 import re
 import tempfile
 from typing import AsyncGenerator, Dict, List, Tuple, Union
+from pathlib import Path
 from urllib import response
 
 import aiofiles
@@ -20,6 +21,12 @@ from ..inference.base import AudioChunk
 from ..services.ffmpeg_transcoder import transcode_clean_mp3
 from ..services.audio import AudioService
 from ..services.streaming_audio_writer import StreamingAudioWriter
+from ..services.transcript_writer import (
+    TranscriptSegment,
+    ensure_transcript_artifacts,
+    persist_transcript_metadata,
+    register_transcript_segments,
+)
 from ..services.tts_service import TTSService
 from ..structures import OpenAISpeechRequest
 from ..structures.schemas import CaptionedSpeechRequest
@@ -46,7 +53,6 @@ router = APIRouter(
     tags=["OpenAI Compatible TTS"],
     responses={404: {"description": "Not found"}},
 )
-
 # Global TTSService instance with lock
 _tts_service = None
 _init_lock = None
@@ -209,7 +215,9 @@ async def create_speech(
             "pcm": "audio/pcm",
         }.get(request.response_format, f"audio/{request.response_format}")
 
-        writer = StreamingAudioWriter(request.response_format, sample_rate=24000)
+        writer = StreamingAudioWriter(
+            request.response_format, sample_rate=settings.sample_rate
+        )
 
         # Check if streaming is requested (default for OpenAI client)
         if request.stream:
@@ -226,6 +234,7 @@ async def create_speech(
                 output_format = request.download_format or request.response_format
                 temp_writer = TempFileWriter(output_format)
                 await temp_writer.__aenter__()  # Initialize temp file
+                audio_filename = Path(temp_writer.temp_path).name
 
                 # Get download path immediately after temp file creation
                 download_path = temp_writer.download_path
@@ -245,11 +254,37 @@ async def create_speech(
 
                 # Create async generator for streaming
                 async def dual_output():
+                    transcript_segments: list[TranscriptSegment] = []
                     try:
                         # Write chunks to temp file and stream
                         async for chunk_data in generator:
                             if chunk_data.output:  # Skip empty chunks
                                 await temp_writer.write(chunk_data.output)
+                                if (
+                                    getattr(chunk_data, "segment_text", None)
+                                    and getattr(chunk_data, "segment_start", None)
+                                    is not None
+                                    and getattr(chunk_data, "segment_end", None)
+                                    is not None
+                                ):
+                                    transcript_segments.append(
+                                        TranscriptSegment(
+                                            id=len(transcript_segments),
+                                            text=str(chunk_data.segment_text).strip(),
+                                            start=float(chunk_data.segment_start),
+                                            end=float(chunk_data.segment_end),
+                                            duration=float(
+                                                chunk_data.segment_duration
+                                                if chunk_data.segment_duration
+                                                is not None
+                                                else max(
+                                                    0.0,
+                                                    float(chunk_data.segment_end)
+                                                    - float(chunk_data.segment_start),
+                                                )
+                                            ),
+                                        )
+                                    )
                                 # if return_json:
                                 #    yield chunk, chunk_data
                                 # else:
@@ -257,6 +292,17 @@ async def create_speech(
 
                         # Finalize the temp file
                         await temp_writer.finalize()
+                        await register_transcript_segments(
+                            audio_filename,
+                            writer.sample_rate,
+                            transcript_segments,
+                        )
+                        await persist_transcript_metadata(
+                            settings.temp_file_dir,
+                            audio_filename,
+                            writer.sample_rate,
+                            transcript_segments,
+                        )
                     except Exception as e:
                         logger.error(f"Error in dual output streaming: {e}")
                         await temp_writer.__aexit__(type(e), e, e.__traceback__)
@@ -336,6 +382,7 @@ async def create_speech(
                 output_format = request.download_format or request.response_format
                 temp_writer = TempFileWriter(output_format)
                 await temp_writer.__aenter__()  # Initialize temp file
+                audio_filename = Path(temp_writer.temp_path).name
 
                 # Get download path immediately after temp file creation
                 download_path = temp_writer.download_path
@@ -347,6 +394,18 @@ async def create_speech(
                     await temp_writer.write(output)
                     # Finalize the temp file
                     await temp_writer.finalize()
+                    transcript_segments = getattr(audio_data, "transcript_segments", [])
+                    await register_transcript_segments(
+                        audio_filename,
+                        writer.sample_rate,
+                        transcript_segments,
+                    )
+                    await persist_transcript_metadata(
+                        settings.temp_file_dir,
+                        audio_filename,
+                        writer.sample_rate,
+                        transcript_segments,
+                    )
 
                 except Exception as e:
                     logger.error(f"Error in dual output: {e}")
@@ -498,6 +557,39 @@ async def download_clean_audio_file(filename: str):
             detail={
                 "error": "server_error",
                 "message": "Failed to serve cleaned audio file",
+                "type": "server_error",
+            },
+        )
+
+
+@router.post("/download/{filename}/transcript")
+async def prepare_transcript_download(filename: str):
+    """Materialize timestamped transcript files for an already generated audio file."""
+    try:
+        txt_path, json_path = await ensure_transcript_artifacts(
+            settings.temp_file_dir, filename
+        )
+        return {
+            "status": "ready",
+            "transcript_path": f"/download/{Path(txt_path).name}",
+            "transcript_json_path": f"/download/{Path(json_path).name}",
+        }
+    except KeyError:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "file_not_found",
+                "message": "Transcript data is not available for this audio file",
+                "type": "invalid_request_error",
+            },
+        )
+    except Exception as e:
+        logger.error(f"Error preparing transcript for {filename}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "server_error",
+                "message": "Failed to prepare transcript files",
                 "type": "server_error",
             },
         )

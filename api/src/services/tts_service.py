@@ -21,6 +21,7 @@ from ..inference.voice_manager import get_manager as get_voice_manager
 from ..structures.schemas import NormalizationOptions
 from .audio import AudioNormalizer, AudioService
 from .streaming_audio_writer import StreamingAudioWriter
+from .transcript_writer import TranscriptSegment
 from .text_processing import tokenize
 from .text_processing.text_processor import process_text_chunk, smart_split
 
@@ -273,6 +274,7 @@ class TTSService:
         stream_normalizer = AudioNormalizer()
         chunk_index = 0
         current_offset = 0.0
+        sample_rate = settings.sample_rate
         try:
             await self.model_manager.ensure_backend()
             backend = self.model_manager.get_backend()
@@ -298,10 +300,19 @@ class TTSService:
                     # --- Handle Pause Chunk ---
                     try:
                         logger.debug(f"Generating {pause_duration_s}s silence chunk")
-                        silence_samples = int(pause_duration_s * 24000)  # 24kHz sample rate
+                        silence_samples = int(pause_duration_s * sample_rate)
                         # Create proper silence as int16 zeros to avoid normalization artifacts
                         silence_audio = np.zeros(silence_samples, dtype=np.int16)
-                        pause_chunk = AudioChunk(audio=silence_audio, word_timestamps=[])  # Empty timestamps for silence
+                        pause_chunk = AudioChunk(
+                            audio=silence_audio,
+                            word_timestamps=[],
+                            segment_text="",
+                            segment_start=current_offset,
+                            segment_end=current_offset + pause_duration_s,
+                            segment_duration=pause_duration_s,
+                            sample_rate=sample_rate,
+                            is_pause=True,
+                        )  # Empty timestamps for silence
 
                         # Format and yield the silence chunk
                         if output_format:
@@ -329,6 +340,7 @@ class TTSService:
                 elif tokens or chunk_text.strip():  # Process if there are tokens OR non-whitespace text
                     # --- Handle Text Chunk ---
                     try:
+                        chunk_start = current_offset
                         # Process audio for chunk
                         async for chunk_data in self._process_chunk(
                             chunk_text,  # Pass text for Kokoro V1
@@ -353,8 +365,14 @@ class TTSService:
                             # Update offset based on the actual duration of the generated audio chunk
                             chunk_duration = 0
                             if chunk_data.audio is not None and len(chunk_data.audio) > 0:
-                                chunk_duration = len(chunk_data.audio) / 24000
+                                chunk_duration = len(chunk_data.audio) / sample_rate
                                 current_offset += chunk_duration
+                                chunk_data.segment_text = chunk_text
+                                chunk_data.segment_start = chunk_start
+                                chunk_data.segment_end = current_offset
+                                chunk_data.segment_duration = chunk_duration
+                                chunk_data.sample_rate = sample_rate
+                                chunk_data.is_pause = False
 
                             # Yield the processed chunk (either formatted or raw)
                             if chunk_data.output is not None:
@@ -414,6 +432,7 @@ class TTSService:
     ) -> AudioChunk:
         """Generate complete audio for text using streaming internally."""
         audio_data_chunks = []
+        transcript_segments = []
 
         try:
             async for audio_stream_data in self.generate_audio_stream(
@@ -430,8 +449,19 @@ class TTSService:
             ):
                 if len(audio_stream_data.audio) > 0:
                     audio_data_chunks.append(audio_stream_data)
+                    segment = TranscriptSegment(
+                        id=len(transcript_segments),
+                        text=getattr(audio_stream_data, "segment_text", "") or "",
+                        start=float(getattr(audio_stream_data, "segment_start", 0.0) or 0.0),
+                        end=float(getattr(audio_stream_data, "segment_end", 0.0) or 0.0),
+                        duration=float(getattr(audio_stream_data, "segment_duration", 0.0) or 0.0),
+                    )
+                    if segment.text.strip():
+                        transcript_segments.append(segment)
 
             combined_audio_data = AudioChunk.combine(audio_data_chunks)
+            combined_audio_data.transcript_segments = transcript_segments
+            combined_audio_data.sample_rate = writer.sample_rate
             return combined_audio_data
         except Exception as e:
             logger.error(f"Error in audio generation: {str(e)}")

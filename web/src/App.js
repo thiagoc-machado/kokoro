@@ -15,6 +15,7 @@ export class App {
             generateBtnLoader: document.querySelector('#generate-btn .loader'),
             downloadBtn: document.getElementById('download-btn'),
             cleanDownloadBtn: document.getElementById('clean-download-btn'),
+            transcriptDownloadBtn: document.getElementById('transcript-download-btn'),
             autoplayToggle: document.getElementById('autoplay-toggle'),
             formatSelect: document.getElementById('format-select'),
             status: document.getElementById('status'),
@@ -30,6 +31,7 @@ export class App {
         this.playerState = new PlayerState();
         this.audioService = new AudioService();
         this.voiceService = new VoiceService();
+        this.setTranscriptButtonState('hidden');
 
         this.renderVersionBadge();
 
@@ -106,6 +108,7 @@ export class App {
         // Download button
         this.elements.downloadBtn.addEventListener('click', () => this.downloadAudio());
         this.elements.cleanDownloadBtn.addEventListener('click', () => this.downloadCleanAudio());
+        this.elements.transcriptDownloadBtn?.addEventListener('click', () => this.downloadTranscript());
 
         // Keep browser/output warning aligned with the selected format
         this.elements.formatSelect.addEventListener('change', () => this.applyBrowserStreamingNotice());
@@ -114,8 +117,9 @@ export class App {
         this.elements.cancelBtn.addEventListener('click', () => {
             this.audioService.cancel();
             this.setGenerating(false);
-            this.elements.downloadBtn.classList.remove('ready');
-            this.elements.cleanDownloadBtn.classList.remove('ready');
+            this.setDownloadButtonsReady(false);
+            this.setDownloadButtonsVisible(false);
+            this.setTranscriptButtonState('hidden');
             this.showStatus('Generation cancelled', 'info');
         });
 
@@ -130,8 +134,9 @@ export class App {
     setupAudioEvents() {
         // Handle download button visibility
         this.audioService.addEventListener('downloadReady', () => {
-            this.elements.downloadBtn.classList.add('ready');
-            this.elements.cleanDownloadBtn.classList.add('ready');
+            this.setDownloadButtonsVisible(true);
+            this.setDownloadButtonsReady(true);
+            this.setTranscriptButtonState('ready');
         });
 
         // Handle buffer errors
@@ -175,8 +180,9 @@ export class App {
         this.audioService.addEventListener('error', (error) => {
             this.showStatus('Error: ' + error.message, 'error');
             this.setGenerating(false);
-            this.elements.downloadBtn.style.display = 'none';
-            this.elements.cleanDownloadBtn.style.display = 'none';
+            this.setDownloadButtonsReady(false);
+            this.setDownloadButtonsVisible(false);
+            this.setTranscriptButtonState('hidden');
         });
 
         // Block-mode playback failure: file is still available for download
@@ -236,10 +242,9 @@ export class App {
         this.playerState.setTime(0, 0);
         this.setGenerating(true);
         this._playbackFailed = false;
-        this.elements.downloadBtn.classList.remove('ready');
-        this.elements.cleanDownloadBtn.classList.remove('ready');
-        this.elements.downloadBtn.style.display = '';
-        this.elements.cleanDownloadBtn.style.display = '';
+        this.setDownloadButtonsReady(false);
+        this.setDownloadButtonsVisible(true);
+        this.setTranscriptButtonState('hidden');
 
         // Just reset progress bar, don't do full cleanup
         this.waveVisualizer.updateProgress(0, 1);
@@ -302,6 +307,41 @@ export class App {
         this.triggerDownload(downloadUrl, `${voice}_${timestamp}_clean.mp3`);
     }
 
+    downloadTranscript() {
+        const downloadUrl = this.audioService.getTranscriptDownloadUrl();
+        if (!downloadUrl) {
+            this.generateTranscript();
+            return;
+        }
+
+        const voice = this.voiceService.getSelectedVoiceString();
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+
+        this.triggerDownload(downloadUrl, `${voice}_${timestamp}_transcript.txt`);
+    }
+
+    async generateTranscript() {
+        if (!this.audioService.getDownloadUrl()) {
+            this.showStatus('Generate audio first to create a transcript.', 'info');
+            return;
+        }
+
+        this.setTranscriptButtonState('creating');
+
+        try {
+            const result = await this.audioService.prepareTranscript();
+            if (!result) {
+                throw new Error('Transcript preparation failed');
+            }
+            this.setTranscriptButtonState('ready');
+            this.showStatus('Transcript ready', 'success');
+        } catch (error) {
+            console.error('Transcript generation error:', error);
+            this.setTranscriptButtonState('ready');
+            this.showStatus('Error creating transcript: ' + error.message, 'error');
+        }
+    }
+
     triggerDownload(downloadUrl, filename) {
         const a = document.createElement('a');
         a.href = downloadUrl;
@@ -309,6 +349,60 @@ export class App {
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
+    }
+
+    triggerBlobDownload(content, filename, mimeType) {
+        const blob = new Blob([content], { type: mimeType });
+        const objectUrl = URL.createObjectURL(blob);
+        this.triggerDownload(objectUrl, filename);
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    }
+
+    setDownloadButtonsReady(isReady) {
+        for (const button of [
+            this.elements.downloadBtn,
+            this.elements.cleanDownloadBtn,
+        ]) {
+            button?.classList.toggle('ready', isReady);
+        }
+    }
+
+    setDownloadButtonsVisible(isVisible) {
+        const display = isVisible ? '' : 'none';
+        for (const button of [
+            this.elements.downloadBtn,
+            this.elements.cleanDownloadBtn,
+        ]) {
+            if (button) {
+                button.style.display = display;
+            }
+        }
+    }
+
+    setTranscriptButtonState(state) {
+        if (!this.elements.transcriptDownloadBtn) {
+            return;
+        }
+        const button = this.elements.transcriptDownloadBtn;
+        button.classList.remove('creating', 'ready');
+
+        if (state === 'hidden') {
+            button.style.display = 'none';
+            button.disabled = false;
+            return;
+        }
+
+        button.style.display = '';
+        button.disabled = state === 'creating';
+
+        if (state === 'creating') {
+            button.classList.add('creating');
+            return;
+        }
+
+        if (state === 'ready') {
+            button.classList.add('ready');
+        }
     }
 }
 

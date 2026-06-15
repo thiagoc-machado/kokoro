@@ -13,6 +13,8 @@ export class AudioService {
         this.CHARS_PER_CHUNK = 150;
         this.MAX_LEAD_SECONDS = 60;
         this.serverDownloadPath = null;
+        this.serverTranscriptPath = null;
+        this.serverTranscriptJsonPath = null;
         this.pendingOperations = [];
         this.objectUrl = null;
         this.chunkQueue = [];
@@ -233,6 +235,14 @@ export class AudioService {
                     } else {
                         console.warn('No X-Download-Path header found. Available headers:',
                             Object.keys(headers).join(', '));
+                    }
+                    const transcriptPath = headers['x-transcript-path'];
+                    if (transcriptPath) {
+                        this.serverTranscriptPath = await config.getApiUrl(`/v1${transcriptPath}`);
+                    }
+                    const transcriptJsonPath = headers['x-transcript-json-path'];
+                    if (transcriptJsonPath) {
+                        this.serverTranscriptJsonPath = await config.getApiUrl(`/v1${transcriptJsonPath}`);
                     }
 
                     this.streamFinished = true;
@@ -591,6 +601,8 @@ export class AudioService {
         this.mediaSource = null;
         this.sourceBuffer = null;
         this.serverDownloadPath = null;
+        this.serverTranscriptPath = null;
+        this.serverTranscriptJsonPath = null;
         this.rejectPendingOperations(new Error('AudioService cancelled'));
         this.chunkQueue = [];
         this.streamFinished = true;
@@ -621,6 +633,8 @@ export class AudioService {
         this.mediaSource = null;
         this.sourceBuffer = null;
         this.serverDownloadPath = null;
+        this.serverTranscriptPath = null;
+        this.serverTranscriptJsonPath = null;
         this.rejectPendingOperations(new Error('AudioService cleanup'));
         this.chunkQueue = [];
         this.streamFinished = true;
@@ -636,12 +650,85 @@ export class AudioService {
         return this.serverDownloadPath;
     }
 
+    getDownloadFilename() {
+        if (!this.serverDownloadPath) {
+            console.warn('No download path available');
+            return null;
+        }
+
+        try {
+            const url = this.serverDownloadPath.includes('://')
+                ? new URL(this.serverDownloadPath)
+                : new URL(this.serverDownloadPath, window.location.origin);
+            const filename = url.pathname.split('/').filter(Boolean).pop();
+            return filename ? decodeURIComponent(filename) : null;
+        } catch (error) {
+            console.warn('Unable to parse download filename:', error);
+            const filename = this.serverDownloadPath
+                .split('?')[0]
+                .split('#')[0]
+                .split('/')
+                .filter(Boolean)
+                .pop();
+            return filename ? decodeURIComponent(filename) : null;
+        }
+    }
+
     getCleanDownloadUrl() {
         const downloadUrl = this.getDownloadUrl();
         if (!downloadUrl) {
             return null;
         }
         return `${downloadUrl}/clean`;
+    }
+
+    getTranscriptDownloadUrl() {
+        if (!this.serverTranscriptPath) {
+            console.warn('No transcript path available');
+            return null;
+        }
+        return this.serverTranscriptPath;
+    }
+
+    getTranscriptJsonDownloadUrl() {
+        if (!this.serverTranscriptJsonPath) {
+            console.warn('No transcript JSON path available');
+            return null;
+        }
+        return this.serverTranscriptJsonPath;
+    }
+
+    async prepareTranscript() {
+        if (this.serverTranscriptPath && this.serverTranscriptJsonPath) {
+            return {
+                status: 'ready',
+                transcript_path: this.serverTranscriptPath,
+                transcript_json_path: this.serverTranscriptJsonPath,
+            };
+        }
+
+        const downloadFilename = this.getDownloadFilename();
+        if (!downloadFilename) {
+            throw new Error('Unable to determine the generated audio filename');
+        }
+
+        const encodedFilename = encodeURIComponent(downloadFilename);
+        const apiUrl = await config.getApiUrl(`/v1/download/${encodedFilename}/transcript`);
+        const response = await fetch(apiUrl, { method: 'POST' });
+        const payload = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+            throw new Error(payload.detail?.message || 'Failed to prepare transcript');
+        }
+
+        if (!payload.transcript_path || !payload.transcript_json_path) {
+            throw new Error('Transcript paths were not returned by the server');
+        }
+
+        this.serverTranscriptPath = await config.getApiUrl(`/v1${payload.transcript_path}`);
+        this.serverTranscriptJsonPath = await config.getApiUrl(`/v1${payload.transcript_json_path}`);
+
+        return payload;
     }
 }
 

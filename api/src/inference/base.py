@@ -15,10 +15,22 @@ class AudioChunk:
         audio: np.ndarray,
         word_timestamps: Optional[List] = [],
         output: Optional[Union[bytes, np.ndarray]] = b"",
+        segment_text: Optional[str] = None,
+        segment_start: Optional[float] = None,
+        segment_end: Optional[float] = None,
+        segment_duration: Optional[float] = None,
+        sample_rate: Optional[int] = None,
+        is_pause: bool = False,
     ):
         self.audio = audio
         self.word_timestamps = word_timestamps
         self.output = output
+        self.segment_text = segment_text
+        self.segment_start = segment_start
+        self.segment_end = segment_end
+        self.segment_duration = segment_duration
+        self.sample_rate = sample_rate
+        self.is_pause = is_pause
 
     @staticmethod
     def combine(audio_chunk_list: List):

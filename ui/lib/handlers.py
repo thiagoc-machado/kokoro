@@ -98,7 +98,7 @@ def setup_event_handlers(components: dict, disable_local_saving: bool = False):
                 else [gr.update(choices=files.list_input_files())]
             )
 
-    def generate_from_text(text, remove_timestamps, voice, format, speed):
+    def generate_from_text(text, voice, format, remove_timestamps, speed):
         """Generate speech from direct text input"""
         is_available, _ = api.check_api_status()
         if not is_available:
@@ -127,7 +127,7 @@ def setup_event_handlers(components: dict, disable_local_saving: bool = False):
             ),
         ]
 
-    def generate_from_file(selected_file, remove_timestamps, voice, format, speed):
+    def generate_from_file(selected_file, voice, format, remove_timestamps, speed):
         """Generate speech from selected file"""
         is_available, _ = api.check_api_status()
         if not is_available:
@@ -192,9 +192,9 @@ def setup_event_handlers(components: dict, disable_local_saving: bool = False):
         fn=generate_from_text,
         inputs=[
             components["input"]["text_input"],
-            components["input"]["remove_timestamps"],
             components["model"]["voice"],
             components["model"]["format"],
+            components["model"]["remove_timestamps"],
             components["model"]["speed"],
         ],
         outputs=[
@@ -265,9 +265,9 @@ def setup_event_handlers(components: dict, disable_local_saving: bool = False):
             fn=generate_from_file,
             inputs=[
                 components["input"]["file_select"],
-                components["input"]["remove_timestamps"],
                 components["model"]["voice"],
                 components["model"]["format"],
+                components["model"]["remove_timestamps"],
                 components["model"]["speed"],
             ],
             outputs=[

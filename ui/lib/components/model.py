@@ -28,6 +28,10 @@ def create_model_column(voice_ids: Optional[list] = None) -> Tuple[gr.Column, di
         format_input = gr.Dropdown(
             choices=config.AUDIO_FORMATS, label="Audio Format", value="mp3"
         )
+        remove_timestamps = gr.Checkbox(
+            label="Remove leading timestamps",
+            value=False,
+        )
         speed_input = gr.Slider(
             minimum=0.5, maximum=2.0, value=1.0, step=0.1, label="Speed"
         )
@@ -36,6 +40,7 @@ def create_model_column(voice_ids: Optional[list] = None) -> Tuple[gr.Column, di
         "status_btn": status_btn,
         "voice": voice_input,
         "format": format_input,
+        "remove_timestamps": remove_timestamps,
         "speed": speed_input,
     }
 

@@ -16,13 +16,14 @@ def test_create_model_column_structure():
     assert isinstance(components, dict)
 
     # Test expected components presence
-    expected_components = {"status_btn", "voice", "format", "speed"}
+    expected_components = {"status_btn", "voice", "format", "remove_timestamps", "speed"}
     assert set(components.keys()) == expected_components
 
     # Test component types
     assert isinstance(components["status_btn"], gr.Button)
     assert isinstance(components["voice"], gr.Dropdown)
     assert isinstance(components["format"], gr.Dropdown)
+    assert isinstance(components["remove_timestamps"], gr.Checkbox)
     assert isinstance(components["speed"], gr.Slider)
 
 
@@ -46,6 +47,10 @@ def test_model_column_default_values():
     expected_format_choices = [(fmt, fmt) for fmt in AUDIO_FORMATS]
     assert components["format"].choices == expected_format_choices
     assert components["format"].value == "mp3"
+
+    # Test timestamp checkbox
+    assert components["remove_timestamps"].label == "Remove leading timestamps"
+    assert components["remove_timestamps"].value is False
 
     # Test speed slider
     assert components["speed"].minimum == 0.5

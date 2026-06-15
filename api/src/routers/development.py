@@ -90,7 +90,9 @@ async def generate_from_phonemes(
             raise ValueError("Phonemes cannot be empty")
 
         # Create streaming audio writer and normalizer
-        writer = StreamingAudioWriter(format="wav", sample_rate=24000, channels=1)
+        writer = StreamingAudioWriter(
+            format="wav", sample_rate=settings.sample_rate, channels=1
+        )
         normalizer = AudioNormalizer()
 
         async def generate_chunks():
@@ -182,7 +184,9 @@ async def create_captioned_speech(
             "pcm": "audio/pcm",
         }.get(request.response_format, f"audio/{request.response_format}")
 
-        writer = StreamingAudioWriter(request.response_format, sample_rate=24000)
+        writer = StreamingAudioWriter(
+            request.response_format, sample_rate=settings.sample_rate
+        )
         # Check if streaming is requested (default for OpenAI client)
         if request.stream:
             # Create generator but don't start it yet

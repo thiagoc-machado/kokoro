@@ -23,7 +23,7 @@ class AudioNormalizer:
 
     def __init__(self):
         self.chunk_trim_ms = settings.gap_trim_ms
-        self.sample_rate = 24000  # Sample rate of the audio
+        self.sample_rate = settings.sample_rate
         self.samples_to_trim = int(self.chunk_trim_ms * self.sample_rate / 1000)
         self.samples_to_pad_start = int(50 * self.sample_rate / 1000)
 
@@ -243,6 +243,6 @@ class AudioService:
 
         if audio_chunk.word_timestamps is not None:
             for timestamp in audio_chunk.word_timestamps:
-                timestamp.start_time -= trimed_samples / 24000
-                timestamp.end_time -= trimed_samples / 24000
+                timestamp.start_time -= trimed_samples / normalizer.sample_rate
+                timestamp.end_time -= trimed_samples / normalizer.sample_rate
         return audio_chunk
